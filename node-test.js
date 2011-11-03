@@ -1,10 +1,12 @@
 var https = require('https');
 var PDFDocument = require('pdfkit');
-var completeData = new String();
+
+var categoriesList = new String(); //hold the
+var categoryCount = 0;
+var questionArray = new Array();
+var currentCat = new String();
 
 var doc = new PDFDocument;
-
-var ourCat;
 
 var options = {
   host: 'www.ninjafaq.com',
@@ -19,14 +21,14 @@ var options = {
 
 var req = https.request(options, function(res) {
 	res.on('end',function(x) {
-		parseCategories(completeData);
+		parseCategories(categoriesList);
 	});
 });
 
 req.on('response',function(response) {
 	response.on('data',function(chunk) {
 		if (!!chunk) {
-			completeData = completeData + chunk.toString('ascii');
+			categoriesList = categoriesList + chunk.toString('ascii');
 		};
 	});
 });
@@ -95,6 +97,19 @@ var parseQuestion = function(data) {
 	};
 };
 
-function Question(category,question,answer) {
-	
+function Question(category,question,answer,pdfDoc) {
+	if (!!category && !!question && !!answer) {
+		this.category = category;
+		this.question = question;
+		this.answer = answer;
+		this.pdfDoc = pdfDoc;
+	};
+};
+
+Question.prototype = {
+	addToDocument: function() {
+		//add question to the document
+		this.pdfDoc.text(this.question);
+		this.pdfDoc.text(this.answer);
+	};
 };
