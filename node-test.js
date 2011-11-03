@@ -4,6 +4,8 @@ var completeData = new String();
 
 var doc = new PDFDocument;
 
+var ourCat;
+
 var options = {
   host: 'www.ninjafaq.com',
   port: 443,
@@ -38,6 +40,7 @@ req.end();
 var parseCategories = function(data) {
 	var dataAsString = JSON.parse(data);
 	for (var i in dataAsString.rows) {
+		ourCat = dataAsString.rows[i].key;
 		doc.text(dataAsString.rows[i].key);
 		grabCategoryDocuments(dataAsString.rows[i].key);
 	};
@@ -71,7 +74,7 @@ var grabCategoryDocuments = function(categoryName) {
 	});
 	
 	catReq.on('error', function(e) {
-		console.log('ERROR CAT' + e);
+		console.log('ERROR CAT '+ ourCat + e);
 	});
 	
 	catReq.on('end', function(e) {
@@ -85,11 +88,13 @@ var parseQuestion = function(data) {
 	var parsedQuestion = JSON.parse(data);
 	for (var i in parsedQuestion.rows) {
 		if (!!parsedQuestion.rows[i].value.question && !!parsedQuestion.rows[i].value.answer) {
-			parsedQuestion.rows[i].value.question.replace('/','SL');
-			console.log(parsedQuestion.rows[i].value.question);
 			doc.text(parsedQuestion.rows[i].value.question);
-			//doc.text(parsedQuestion.rows[i].value.answer, {align:'justify', width: 412});
+			doc.text(parsedQuestion.rows[i].value.answer, {align:'justify', width: 412});
 			doc.write('crapper.pdf');
 		};
 	};
+};
+
+function Question(category,question,answer) {
+	
 };
