@@ -2,7 +2,7 @@ var https = require('https');
 var url = require('url');
 
 var PDFDocument = require('pdfkit');
-https.Agent.maxSockets = 1000;
+https.Agent.maxSockets = 10000;
 
 var categoriesList = new String(); //hold the
 var categoryCount = 0;
@@ -10,7 +10,13 @@ var totalCategories = 0;
 var questionArray = new Array();
 var currentCat = new String();
 
+var countQuestions = 0;
+
 var doc = new PDFDocument;
+doc.info['Title'] = 'SBU FAQ';
+doc.info['Author'] = 'SBU PLE Team';
+doc.info['keywords'] = 'FAQ SRX vGW AppSecure';
+
 var targetHost = 'www.ninjafaq.com';
 var targetPort = 443;
 var targetHeaders =  {
@@ -56,21 +62,22 @@ var parseCategories = function(data) {
 	console.log('Total Categories ' + totalCategories);
 	for (var i in dataAsString.rows) {
 		currentCat = dataAsString.rows[i].key;
+		console.log('Current Cat ' + currentCat);
 		grabCategoryDocuments(dataAsString.rows[i].key);
 	};
 };
 
-var grabCategoryDocuments = function(categoryName) {
+function grabCategoryDocuments(categoryName) {
 	var catReturn = new String();
 	
 	var catOptions = {
 	  host: targetHost,
 	  port: targetPort,
-	  path: url.format('/faq/_design/' + categoryName.toLowerCase() + '/_view/listmembers'),
+	  path: url.format('/faq/_design/' + categoryName.toLowerCase().replace(/\s/g,'%20').replace(/\(/g,'%28').replace(/\)/g,'%29').replace(/\//g,'%2F') + '/_view/listmembers'),
 	  method: 'GET',
 	  headers: targetHeaders
 	};
-		
+			
 	var catReq = https.request(catOptions, function(res) {
 		res.on('end',function(x) {
 			//create the question object, add it to the array
@@ -80,10 +87,20 @@ var grabCategoryDocuments = function(categoryName) {
 			if (categoryCount == totalCategories) {
 				//rollup the pdf
 				console.log('done');
+				var currentCategory;
+				questionArray.sort();
 				for (var i in questionArray) {
-					questionArray[i].addToDocument();
+				    if (currentCategory != questionArray[i].category) {
+					    questionArray[i].addQuestionToDocWithCat();
+				    } else {
+					    questionArray[i].addQuestionToDoc();
+					};
+					//set current category
+					currentCategory = questionArray[i].category;
 				};
 				doc.write('crapper.pdf');
+				console.log('Questions ' + countQuestions);
+				console.log('Questions array ' + questionArray.length);
 			};
 		});
 	});
@@ -112,6 +129,12 @@ var grabCategoryDocuments = function(categoryName) {
 
 var parseQuestion = function(data,categoryName) {
 	var parsedQuestion = JSON.parse(data);
+	console.log('Total questions for ' + categoryName + ' ' + parsedQuestion.total_rows);
+	
+	if (parsedQuestion.total_rows == undefined) {
+        console.log(parsedQuestion)
+    };
+    	
 	for (var i in parsedQuestion.rows) {
 		if (!!parsedQuestion.rows[i].value.question && !!parsedQuestion.rows[i].value.answer) {
 			var question = new Question(categoryName,parsedQuestion.rows[i].value.question,parsedQuestion.rows[i].value.answer);
@@ -132,10 +155,23 @@ function Question(category,question,answer,pdfDoc) {
 };
 
 Question.prototype = {
-	addToDocument: function(currentCategory) {
+	addQuestionToDoc: function() {
 		//add question to the document
-		doc.fontSize('20').text(this.category);
-		doc.fontSize('9').text(this.question,{width: 400,align:'justify'}).moveDown(0.5);
-		doc.fontSize('9').text(this.answer,{width: 375, align: 'justify'}).moveDown(0.5);
+        doc.fontSize('9').text('Q: ' + this.question, 50, doc.y, {width: 500, align:'left'}).moveDown(0.5);
+        doc.fontSize('9').text('A: ' + this.answer, 75, doc.y, {width: 500, align: 'left'}).moveDown(1);
+        countQuestions++;
+        if (doc.page.document.y + 75 > doc.page.height) {
+            doc.addPage();
+        };
+    },
+	addQuestionToDocWithCat: function() {
+	    doc.fontSize('20').text(this.category, 25, doc.y);
+        doc.fontSize('9').text('Q: ' + this.question, 50, doc.y, {width: 500,align:'left'}).moveDown(0.5);
+        doc.fontSize('9').text('A: ' + this.answer, 75, doc.y, {width: 500, align: 'left'}).moveDown(1);
+                countQuestions++;
+
+	    if (doc.page.document.y + 75 > doc.page.height) {
+            doc.addPage();
+        };
 	}
 };
